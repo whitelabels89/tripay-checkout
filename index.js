@@ -1,11 +1,17 @@
 const express = require("express");
 const axios = require("axios");
+require("dotenv").config();
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-require("dotenv").config();
+// 🌐 GET root route
+app.get("/", (req, res) => {
+  res.send("✅ Tripay Checkout Backend Aktif");
+});
 
+// 🧾 Create Checkout Endpoint
 app.post("/create-checkout", async (req, res) => {
   const { nama, email, whatsapp } = req.body;
 
@@ -42,15 +48,25 @@ app.post("/create-checkout", async (req, res) => {
     );
 
     return res.json({ success: true, pay_url: response.data.data.checkout_url });
+
   } catch (err) {
-    console.error("Tripay Error:", err.response?.data || err.message);
-    return res.status(500).json({ success: false, message: "Gagal membuat transaksi", detail: err.message });
+    const detail = err.response?.data || err.message;
+    console.error("❌ Tripay Error:", detail);
+
+    return res.status(500).json({
+      success: false,
+      message: "Gagal membuat transaksi",
+      detail
+    });
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("Tripay Checkout Backend Aktif");
+// 📥 (Optional) Callback endpoint Tripay (biar aman kalau Tripay tes GET/POST)
+app.all("/callback", (req, res) => {
+  console.log("📩 Callback diterima:", JSON.stringify(req.body || {}, null, 2));
+  res.status(200).send("Callback OK");
 });
 
+// 🚀 Jalankan Server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server jalan di port", PORT));
+app.listen(PORT, () => console.log(`🚀 Server aktif di port ${PORT}`));
