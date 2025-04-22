@@ -6,12 +6,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 🌐 GET root route
 app.get("/", (req, res) => {
   res.send("✅ Tripay Checkout Backend Aktif");
 });
 
-// 🧾 Create Checkout Endpoint
 app.post("/create-checkout", async (req, res) => {
   const { nama, email, whatsapp } = req.body;
 
@@ -52,21 +50,55 @@ app.post("/create-checkout", async (req, res) => {
   } catch (err) {
     const detail = err.response?.data || err.message;
     console.error("❌ Tripay Error:", detail);
-
-    return res.status(500).json({
-      success: false,
-      message: "Gagal membuat transaksi",
-      detail
-    });
+    return res.status(500).json({ success: false, message: "Gagal membuat transaksi", detail });
   }
 });
 
-// 📥 (Optional) Callback endpoint Tripay (biar aman kalau Tripay tes GET/POST)
-app.all("/callback", (req, res) => {
-  console.log("📩 Callback diterima:", JSON.stringify(req.body || {}, null, 2));
+app.post("/callback", async (req, res) => {
+  const data = req.body;
+  console.log("📩 Callback diterima:", JSON.stringify(data, null, 2));
+
+  if (data.status === "PAID") {
+    const payload = {
+      reference: data.reference,
+      merchant_ref: data.merchant_ref,
+      payment_method: data.payment_method,
+      payment_method_code: data.payment_method_code,
+      total_amount: data.total_amount,
+      fee_merchant: data.fee_merchant,
+      fee_customer: data.fee_customer,
+      amount_received: data.amount_received,
+      is_closed_payment: data.is_closed_payment,
+      status: data.status,
+      paid_at: data.paid_at,
+      note: data.note,
+      timestamp_received: new Date().toISOString()
+    };
+
+    // ✅ Kirim ke Google Sheets
+    try {
+      await axios.post(process.env.GOOGLE_SHEET_WEBHOOK, payload);
+      console.log("✅ Data dikirim ke Google Sheet");
+    } catch (err) {
+      console.error("❌ Gagal kirim ke Google Sheet:", err.message);
+    }
+
+    // ✅ Kirim WhatsApp via Whacenter
+    try {
+      const message = `Halo ${data.note || "kakak"}, terima kasih telah membeli eBook Prompt Master.\n\nBerikut link downloadnya:\nhttps://drive.google.com/file/d/1Egok1XjsWx_Ny9oCvK1ytbKUCwpk1MR8/view?usp=drive_link\n\nSalam sukses!`;
+      await axios.post("https://app.whacenter.com/api/send", {
+        device: process.env.WHACENTER_DEVICE,
+        number: data.customer_phone || "",
+        message
+      });
+      console.log("✅ WhatsApp dikirim via Whacenter");
+    } catch (err) {
+      console.error("❌ Gagal kirim WhatsApp:", err.message);
+    }
+  }
+
   res.status(200).send("Callback OK");
 });
 
-// 🚀 Jalankan Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server aktif di port ${PORT}`));
