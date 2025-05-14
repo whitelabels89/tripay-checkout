@@ -6,7 +6,7 @@ app.use(express.urlencoded({ extended: true }));
 
 require("dotenv").config();
 
-app.post("/api-callback", async (req, res) => {
+app.post("/create-checkout", async (req, res) => {
   const { nama, email, whatsapp } = req.body;
 
   if (!nama || !email || !whatsapp) {
